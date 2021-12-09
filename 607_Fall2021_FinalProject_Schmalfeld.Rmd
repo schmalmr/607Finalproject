@@ -1,0 +1,332 @@
+---
+title: "Schmalfeld_606Fall2021_Final_Project_Happiness_correlation_with wellness"
+author: "Mark Schmalfeld"
+date: "10/31/2021"
+output:
+  html_document: default
+  pdf_document: 
+    latex_engine: xelatex
+---
+---
+title: DATA 607 Fall 2021 Final Project-Energy Forecast
+author: Mark Schmalfeld
+---
+
+
+```{r echo=FALSE}
+library(tidyverse)
+library(openintro)
+library(RCurl)
+
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##  Energy and Carbon Emissions data upload
+
+#### Use the US Energy Information Administration (EIA) at www.eia.gov.international to collect following
+
+#### Collect data on a world and regional level
+
+
+### Pair down the time series data for the review at the global level
+
+1) Population dataset
+2) GDP
+3) Carbon Emissions data
+4) Energy production and demand 
+5) Energy use per capita
+6) Energy use per GDP
+
+Subset the data and rename to clean up the variable names.
+Create a data frame with import global varialbes in time series ( aprpox 40 year of annual data)
+Look at the glimpse of the dataset to see basic structure
+
+```{r}
+
+URL<-"https://raw.githubusercontent.com/schmalmr/607Finalproject/main/EIAdata607FinalProject_Energy.csv"
+
+df<-read.csv(URL)
+
+
+dfglobal<-select(df,Year, World_Consumption_quadBTU, World_GDP_USDB, World_consume_Coa._quadBTU, World_consume_Natural.gas_quadBTU,World_consume_Petroleum_quadBTU, World_consume_Nuclear..renewables_quadBTU,World_pop,World_MMBtu_person, Fossil.fuel_plus_landuse_emissions_GtCO2,Land_use_emissions_GtCO2, Fossil_fuel_industry_emissions_GtCO2, World_1000BTU_GDPBUSD )
+
+
+dfglobal<-rename(dfglobal, gobal_zero_CO2_energy= World_consume_Nuclear..renewables_quadBTU)
+dfglobal<-rename(dfglobal, global_population =World_pop)
+dfglobal<-rename(dfglobal, global_CO2_fuels=Fossil_fuel_industry_emissions_GtCO2)
+dfglobal<-rename(dfglobal, MBTU_per_GPD_Billions=World_1000BTU_GDPBUSD)
+dfglobal<-rename(dfglobal, MBTU_per_person=World_MMBtu_person)
+dfglobal<-rename(dfglobal, global_energy_use_quad_BTU= World_Consumption_quadBTU)
+dfglobal<-rename(dfglobal, global_Coal_use_quad_BTU=World_consume_Coa._quadBTU)
+dfglobal<-rename(dfglobal, global_NGAS_use_quad_BTU=World_consume_Natural.gas_quadBTU)
+dfglobal<-rename(dfglobal, global_Oil_use_quad_BTU=World_consume_Petroleum_quadBTU)
+dfglobal<-rename(dfglobal, global_fuelandlandland_use_GtCO2=Fossil.fuel_plus_landuse_emissions_GtCO2)
+dfglobal<-rename(dfglobal, global_land_use_GtCO2=Land_use_emissions_GtCO2)
+
+glimpse (dfglobal)
+
+```
+
+```{r create plots to view datasets}
+
+ggplot(data=df, aes(x=Year, y=World_Consumption_quadBTU))+geom_point(size=4)+geom_smooth(method=lm)+ggtitle("Energy consumption (quad) vs time")
+
+ggplot(data=df,aes(x=World_pop, y=World_Consumption_quadBTU))+geom_point(size=5)+geom_smooth(method=lm)+ggtitle("Energy consumption (quad) vs global population")
+
+ggplot(data=df,aes(x=World_pop, y=Fossil_fuel_industry_emissions_GtCO2))+geom_point(size=4)+geom_smooth(method=lm)+ggtitle("Fossile fuel carbon emission (GtCo2) vs world population")
+
+ggplot(data=df,aes(x=World_Consumption_quadBTU, y=Fossil_fuel_industry_emissions_GtCO2))+geom_point(size=4)+geom_smooth(method=lm)+ggtitle("Energy consumption (quad) vs fossile fuel emissions (GtCO2)")
+
+ggplot(data=df,aes(x=World_Consumption_quadBTU, y=World_GDP_USDB.1))+geom_point(size=4)+geom_smooth(method=lm)+ggtitle("Energy consumption (quad) vs GDP (billions USD)")
+
+ggplot(data=df,aes(x=Fossil_fuel_industry_emissions_GtCO2, y=World_GDP_USDB.1))+geom_point(size=4)+geom_smooth(method=lm) + ggtitle("Fossil fuel emissions (GtCO2) vs GPD (US $ Billions)")  
+       
+```
+
+
+## Evaluate linear model of GPD vs year
+
+```{r linear model evaluation GPD at given time}
+
+
+ m_gdp <- lm(World_GDP_USDB ~ Year, data = dfglobal)
+summary(m_gdp)
+par(mfrow = c(2,2))
+plot(m_gdp)
+
+```
+
+## Evaluate linear model of global population over time 
+
+```{r linear model evaluation population at given year}
+
+
+ m_population2 <- lm(global_population ~ Year, data = dfglobal)
+summary(m_population2)
+par(mfrow = c(2,2))
+plot(m_population2)
+
+```
+
+##  Evalue Energy consumption total 
+
+### Model is good with the GPD and the Population.
+#### Population has a p value of 0.06 (just a bit higher than desired)
+#### Population retained as a variable in the model 
+
+```{r linear model evaluation energy at with GPD and Population}
+
+
+ m_energy <- lm(global_energy_use_quad_BTU ~World_GDP_USDB+global_population, data = dfglobal)
+summary(m_energy)
+par(mfrow = c(2,2))
+plot(m_energy)
+
+```
+
+## Evaluate the Energy consumption not generating CO2 
+
+### Correlation is most strong with the Global GDP 
+### GDP calculated from model above can be used to estimate model Energy 
+consumption that is not generating CO2.
+
+### Assumption for ease of model: Nuclear, renewables and water
+are net zero CO2 energy sources in this model 
+All CO2 emissions are then attributed to fuel use.
+
+
+```{r linear model evaluation energy zero CO2 over time}
+
+
+ m_energyzero <- lm(gobal_zero_CO2_energy ~ World_GDP_USDB, data = dfglobal)
+summary(m_energyzero)
+par(mfrow = c(2,2))
+plot(m_energyzero)
+
+```
+## Model of Carbon Emissions from Fuel over time
+
+## Key variables for the model are the global energy use, global zero CO2 energy 
+## and the global population
+
+#### Note:  For simplification the use of carbon capture technology is ignored
+and it is assumed later as a simple application of the technology
+to remove carbon from the atmosphere. It is actually a very challenging and
+difficult problem to solve economically and with efficent use of energy.
+
+
+```{r linear model evaluation CO2 over time}
+
+
+ m_co2 <- lm(global_CO2_fuels ~ global_energy_use_quad_BTU+gobal_zero_CO2_energy+global_population, data = dfglobal)
+summary(m_co2)
+par(mfrow = c(2,2))
+plot(m_co2)
+
+```
+## Modeling the future 
+
+### The past 40 years provide a dataset used to establish a frame set of models 
+
+1) Models are noted to have some weaknesses in the models; however all of the
+models are very good at explaining the past.  The R-squared values for 
+the series of models is above 0.95 for all models (amazingly strong)
+2) There are some indications of the residuals have a few outlyers in the models
+- particually noted in the Carbon Emissions model (some trends in each of models)
+3) The Q-Q plots are pretty good for models except the population model over time
+which has more drift than others.  Others do have some trends at the start
+and the tails of the plots.
+4) Residuals are show good random variability for models except the 
+     - population model seems to have poor randomness - with a distinct line
+     - GPD have drift in residuals up and down across the model
+     
+5) Major assumption for next step is to proceed to extrapolate the future
+with the current model.  
+ - Extrapolation out until 2050
+ - Note the use of an extrapolation is not recommended and error expected
+ - Extrapolation judged a risk to consider based the very strong R-squared for
+ each of the individual models.
+ 
+ 
+6) Create an incremental estimate to demonstrate the magnitude of the incremental 
+renewable or zero carbon generating energy development is needed.  
+Placeholder globally without specific constraints on population or GDP
+
+7) The appraoch is to show how much more is needed to just hold Carbon emissions
+flat or near constant.  The later adjustments show how difficult or significant
+the energy transition needed is to achieve reductions on Carbon emissions.
+
+
+```{r model use}
+
+year <- c(1980,1990,2000,2010,2019, 2020, 2021,2022,2023,2024,2025,2026,2027,2028,2029,2030,2035,2040,2045,2050,2075,2100)
+
+df_model <- data.frame(year)
+
+df_model<- df_model %>%mutate(GDP=(-5033000+2552*year),.after=year)
+df_model<- df_model %>%mutate(population=(-170700000+88370*year),.after=GDP)
+df_model<- df_model %>%mutate(energy_total=(273.5+0.004*(GDP)),.after=population)
+df_model<- df_model %>%mutate(energy_zerocarbon=(19.02+0.0005592*(GDP)),.after=energy_total)
+df_model<- df_model %>%mutate(globalcarbonfuels=(-1133000000+6.91E7*energy_total-100900000*energy_zerocarbon+754.7*population),.after=population)
+
+df_model<- df_model %>%mutate(energywithcarbon=(energy_total-energy_zerocarbon),.after=energy_zerocarbon)
+df_model<- df_model %>%mutate(carbon_per_energy=(globalcarbonfuels/(energy_total-energy_zerocarbon)),.after=energywithcarbon)
+
+df_model$incremental_new_zero_carbonenergy <- c(0,0,0,0,0,20,35,55,75,95,115,150,170,180,190,195,250,500,650,800,900,1100)
+df_model<-df_model %>% mutate(energy_new_zerocarbon=energy_zerocarbon+incremental_new_zero_carbonenergy)
+df_model<-df_model %>% mutate(energy_new_withcarbon=(energy_total-(energy_new_zerocarbon)))
+df_model<-df_model %>% mutate(new_global_carbonemissionsfuel=(globalcarbonfuels+72000000*(energy_zerocarbon-energy_new_zerocarbon)))
+
+
+
+
+
+
+```
+
+
+
+
+
+
+```{r plots for modeling, echo=FALSE}
+
+ggplot(data=df_model, aes(x=year, y=energy_zerocarbon))+geom_col(color="red")+ggtitle("Zero Carbon Energy Quads vs time baseline - no accelerated reduction in carbon use")
+
+ggplot(data=df_model,aes(x=year, y=energy_total,size=globalcarbonfuels))+geom_point()+ggtitle("Energy demand forecast and associated carbon emission trend in progress")
+
+ggplot(data=df_model, aes(x=energy_total,y=globalcarbonfuels, size=energy_zerocarbon))+geom_point(size=5)+ggtitle("Energy demand with carbon emissions forecast based on past 40 yr trend")
+
+ggplot(data=df_model, aes(x=year, y=energy_new_zerocarbon))+geom_col(color="green")+ggtitle("Zero Carbon Energy quads with accelerated carbon emissions reduction")
+
+ggplot(data=df_model,aes(x=year, y=energy_total,size=new_global_carbonemissionsfuel))+geom_point()+ggtitle("Energy demand forecast and associated carbon emission trend in progress")
+
+ggplot(data=df_model, aes(x=energy_total,y=new_global_carbonemissionsfuel,size=energy_new_zerocarbon))+geom_point(size=5)+ggtitle("Energy demand with carbon emissions forecast based on past 40 yr trend")
+
+ggplot(data=df_model,aes(x=population,y=GDP,size=energy_total))+geom_point()+ggtitle("Population vs GDP with bubble size based on total energy demand in quad")
+
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+##  Illustration of the impact energy shift away from fossil fuels
+
+Assumptions for solar:
+1)  One square meter of solar cells generates 400 Kw hr per year and efficiency is 70% sunshine at 8 hr per day.
+2)  Therefore:  1 Quad= 10^15 BTU of energy or will require 755 Km2 of solar panels
+3)  Also 1 quad is approx equavlent to 183 million barrels of oil, 38.5 Million tons of coal or 980 billion cubic feet of natural gas.
+4) How do we conceptualize the scale of the task? 
+   a) Two refinery locations at 250,000 BPD of oil processing is 1 Quad in a year (combined largest complex in the world that would exist today)
+   b) Or appox 500 quad of energy would require a land area the size of Japan, Germany or a bit smaller than Spain.
+      or approx 100 quad of energy would require a land area the size of Pannama or Ireland.
+  c) or 1.2 Million wind turbines to generate 100 quads of energy which could fit into an area the scale of Delaware.
+
+
+
+
+```{r measurable impact of the reduction targets }
+
+
+df_model<- df_model %>%mutate (Solar_total_energy_kmsquared=(energy_total*755),.after=year)
+df_model<- df_model %>% mutate (Solar_totalenergy_num_Irelands=(Solar_total_energy_kmsquared/75500))
+
+df_model<-df_model %>% mutate(Solar_renewable_energy_kmsquared=(energy_new_zerocarbon*755))
+df_model<-df_model %>% mutate(Solar_renewable_num_Irelands=(Solar_renewable_energy_kmsquared/75500))
+
+df_model<-df_model %>% mutate(wind_turbines_totalenergy=(energy_total/100*1200000))
+df_model <-df_model %>% mutate(wind_turbines_totalenergy_num_delawares=(energy_total/100))
+
+```
+
+
+
+
+
+## Plot relative measures of tasks scale to reduce CO2 Emissions with renewables 
+
+Renewable energy as solar or as wind turbines to supply total energy demand 
+
+Equivalent areas estimated to provide benchmark of the scale of the requirements
+
+
+
+```{r plot scale examples of solar and wind turbine replacement of energy, echo=FALSE }
+
+ggplot(data=df_model, aes(x=year, y=Solar_totalenergy_num_Irelands, size=energy_total))+geom_point()+ggtitle(" Solar: #Ireland sized areas to meet the global energy demand (energy Quads")
+
+ggplot(data=df_model, aes(x=year, y=wind_turbines_totalenergy_num_delawares, size=energy_total))+geom_point()+ggtitle("Wind Turb # Delaware sized areas required for global energy demand (energy Quads")
+
+```
+
+
+
+##  Conclusions
+
+#### ~40 years of data from EIA provides good linear modules to represent the trend in energy demand, carbon emissions from fuel as it relates to GDP, Population  (great R-squared correlations with multiple equation model to use in forecasting) 
+#### Model useful to drive understanding of task at hand to create a lower carbon future through forecasting into the future.
+
+## Future work/ improvements:
+#### Evaluate model on regional basis and further utilize regional fuel mix.
+#### Evaluate additional information on specific shifts in middle class, poverty, and urbanization related to energy use.
+#### Evaluate more of the renewable mix sensitivity and include further economics (costs, benefits and non-linear growth potential)
+### Evaluate stronger means of developing forecast forward - extrapolation generally not recommended however based on strength of R-squared and p-values and the statistics is seems a good means of improving understanding.
+
+
+
+
+## References
+
+1. US Energy Information Administration (EIA) at www.eia.gov.international
+
+2. 2020 BP World Energy Outlook at  www.bp.com
+
+3. Jefferson W. Tester, et all, (2005) “Sustainable Energy Choosing Among Options” (MIT press)
+
+4. Hadley Wickham, Garret Grolemund.(2017) “R for Data Science” (OReilly)
+
+5. Winston Chang (2019), “R Graphics Cookbook” (OReilly)
